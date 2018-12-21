@@ -1,16 +1,16 @@
 # NDFS 一个分布式文件系统的设计与实现
 ##  
-![Logo](logo.png)
+![Logo](https://github.com/nerososft/NDFS/blob/master/docs/logo.png)
 ## 
 
 ### 定义
 #### NDFS(Nero Distributed File System)通过网络，将分散的不同机器上的物理磁盘虚拟成一个或多个逻辑磁盘。
 
-![整体架构](arch.png)
+![整体架构](https://github.com/nerososft/NDFS/blob/master/docs/arch.png)
 
 ## 关于HA
 
-![Cluster](cluster.png)
+![Cluster](https://github.com/nerososft/NDFS/blob/master/docs/cluster.png)
 ### 相对于HDFS的HA方案（在namenode里面建立映射表，为了防止namenode挂掉，所有一般会有两个namenode：namenode active 和 namenode standby。只有active对外提供服务。）这种设计的吞吐量不会很大，对于数据存储很频繁的系统，namenode的io速度会是系统瓶颈，再者 HDFS 的 Federation 方案（有多个namenode，分别负责几个datanode。类似于美国的联邦机制）不够灵活，本质上每个联邦的namenode都存在单点故障。除非将 HA 方案和 Federation 方案结合使用，但是系统灵活性不大，运维复杂。
 ### 而NDFS 的 HA 方案是多 namenode（indexnode），多datanode，datanode 通过 zookeeper（由Paxos/Raft支撑，不会有单点故障）发现 namenode 并向namenode更新索引，所有namenode均对外提供服务，通过LoadBalance去确定要访问的 namenode，有效提供了系统的吞吐量以及避免了单点故障。 所有datanode均为平级，只存在逻辑主备关系，所有属于同一个volume的多个datanode也均可对外提供服务，也是由LoadBalance指定。 增加了系统的灵活性，降低了运维复杂度。这种两层的负载均衡有效的提高了系统的吞吐量。
 
@@ -51,11 +51,11 @@
 ## 文件块定义
 ### NDFS文件块定义
 ### NDFS文件块Chunk由ChunkHeader，ChunkData，ChunkFooter构成，如下：
-![Chunk](chunk.jpeg)
+![Chunk](https://github.com/nerososft/NDFS/blob/master/docs/chunk.jpeg)
 #### 文件块头ChunkHeader占128字节，其中文件块版本version占32字节，文件块uuid占32字节，文件块中文件数量fileCount占4字节，chainHash占32字节（用来做防篡改校验），为后续预留headerUnknown 占28字节。文件头示例：
-![ChunkHeader](header.png)
+![ChunkHeader](https://github.com/nerososft/NDFS/blob/master/docs/header.png)
 #### 文件块数据部分ChunkData占64MByte/128MByte/256MByte/... 默认64MByte，该部分存储文件源数据，或文件压缩数据连续存储，默认使用Google Snappy压缩。示例：
-![Data](data.png)
+![Data](https://github.com/nerososft/NDFS/blob/master/docs/data.png)
 ...
 #### 文件块底部ChunkFooter，该部分记录文件块内文件列表信息，文件列表信息结构如下：
 #### 
@@ -79,7 +79,7 @@
 
 #### 其中chunkName为文件块名称；fileName为文件名称；fileType为文件类型，例如png；index为文件数据在data部分的起始位置；fileHash为文件的hash值，方便查找文件以及防止数据重复；fileSize为文件数据大小；compressionAlgorithm为数据压缩方式，例如zip,snappy；compressionSize为数据压缩后大小，index和compressionSize可以从data部分取出文件的压缩数据；chainHash为文件的hash链，用来做防篡改校验；del标识该文件是否已经删除；lastMdfTime为最后一次修改时间；createTime为文件创建时间。
 #### 默认将该结构对象使用Google ProtoStuff序列化后再由Google Snappy压缩，然后存放于ChunkFooter部分，每一条之间使用一个字节分隔符0xFF分隔。文件根部示例：
-![ChunkFooter](footer.png)
+![ChunkFooter](https://github.com/nerososft/NDFS/blob/master/docs/footer.png)
 ### 块存储
 #### 文件读取
 
@@ -105,7 +105,7 @@
 ### 数据防篡改 
 ### 该项配置需要在配置文件中打开，打开意味着所有对数据的修改和删除操作将失效，默认关闭.
 #### Hash链，使用Hash算法的不可逆性，Hash链在Chunk设计中的图例：
-![Chain](chain.png)
+![Chain](https://github.com/nerososft/NDFS/blob/master/docs/chain.png)
 #### 块哈希链：每一个 chunk 的 header 的32字节chainHash由 上一个文件块的文件头+8字节时间戳 MD5 得出。chainHash = MD5(PrevChunkHeader+TimeStamp)。若该Chunk为datanode上第一个chunk，则chainHash由 128字节0xBB+时间戳 MD5 加密生成。chainHash = MD5(128byte0xBB+TimeStamp)
 #### 文件哈希链：每一个 BlockData 的chainHash由 当前块中该BlockData之前的BlockData(该chunk中最后一个BlockData)所对应的文件数据+之前BlockData的chainHash+时间戳 MD5加密得出。 chainHash = MD5(LastData+lastChianHash+TimeStamp)，若该文件为当前chunk内第一个文件，则该文件chainHash由该chunk 的 Header + 8字节时间戳 MD5加密生成。chainHash = MD5(Header+TimeStamp)
 
